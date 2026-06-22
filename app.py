@@ -91,10 +91,10 @@ try:
         # Statistics
         col1, col2, col3, col4 = st.columns(4)
         
-        total_active = get_job_count(db, is_active=True)
-        total_inactive = get_job_count(db, is_active=False)
-        djinni_count = get_job_count(db, source="djinni", is_active=True)
-        dou_count = get_job_count(db, source="dou", is_active=True)
+        total_active = get_job_count(db, is_active=True) or 0
+        total_inactive = get_job_count(db, is_active=False) or 0
+        djinni_count = get_job_count(db, source="djinni", is_active=True) or 0
+        dou_count = get_job_count(db, source="dou", is_active=True) or 0
         
         with col1:
             st.metric("Total Active Jobs", total_active, delta=f"Inactive: {total_inactive}")

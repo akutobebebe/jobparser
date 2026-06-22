@@ -14,8 +14,8 @@ class DOUScraper(BaseScraper):
     
     def __init__(self):
         super().__init__("dou")
-        self.base_url = "https://dou.ua"
-        self.jobs_url = f"{self.base_url}/jobs?category=Python"
+        self.base_url = "https://jobs.dou.ua"  # Updated to correct domain
+        self.jobs_url = f"{self.base_url}/?category=Python"
         self.settings = get_settings()
     
     def get_source_url(self) -> str:
@@ -36,15 +36,20 @@ class DOUScraper(BaseScraper):
                     'Accept-Language': 'en-US,en;q=0.9',
                 }
                 
-                response = await client.get(self.jobs_url, headers=headers)
+                response = await client.get(self.jobs_url, headers=headers, follow_redirects=True)
                 response.raise_for_status()
                 
                 html_content = response.text
             
             soup = BeautifulSoup(html_content, 'html.parser')
             
-            # Find job listings
+            # Find job listings - look for different selectors
             job_elements = soup.find_all('div', class_='vacancy')
+            
+            if not job_elements:
+                # Alternative selector
+                job_elements = soup.find_all(['div', 'article'], class_=lambda x: x and 'job' in str(x).lower() if x else False)
+            
             self.logger.info(f"Found {len(job_elements)} job listings on page")
             
             for idx, element in enumerate(job_elements, 1):
@@ -56,9 +61,9 @@ class DOUScraper(BaseScraper):
                             jobs.append(validated_job)
                             self.logger.debug(f"[{idx}] Parsed: {job_data.get('title')}")
                         else:
-                            self.logger.warning(f"[{idx}] Validation failed for job")
+                            self.logger.debug(f"[{idx}] Validation failed for job")
                 except Exception as e:
-                    self.logger.error(f"[{idx}] Error extracting job: {e}", exc_info=True)
+                    self.logger.debug(f"[{idx}] Error extracting job: {e}")
             
             self.logger.info(f"Successfully parsed {len(jobs)} valid jobs from DOU")
             

@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
+from typing import Generator
 
 from core.config import get_database_url
 from core.logger import setup_logger
@@ -36,19 +37,17 @@ def init_db():
     return engine
 
 
-# Session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+def create_session() -> Session:
+    """Create and return a new database session"""
+    engine = get_engine()
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    return SessionLocal()
 
 
-def get_db() -> Session:
+def get_db() -> Generator[Session, None, None]:
     """Dependency for getting database session"""
-    db = SessionLocal()
+    db = create_session()
     try:
         yield db
     finally:
         db.close()
-
-
-def create_session() -> Session:
-    """Create and return a new database session"""
-    return SessionLocal()

@@ -13,7 +13,7 @@ class JobSchema(BaseModel):
     
     title: str
     description: str
-    company: str
+    company: Optional[str] = "Unknown"
     url: str
     source: str
     source_id: Optional[str] = None
@@ -25,7 +25,7 @@ class JobSchema(BaseModel):
     tags: Optional[str] = None  # JSON string
     posted_at: Optional[datetime] = None
     
-    @field_validator('title', 'description', 'company', 'url')
+    @field_validator('title', 'description', 'url')
     @classmethod
     def check_not_empty(cls, v):
         """Ensure required fields are not empty"""
@@ -49,6 +49,13 @@ class JobSchema(BaseModel):
         if v.lower() not in valid_sources:
             raise ValueError(f'Source must be one of {valid_sources}')
         return v.lower()
+    
+    def dict(self, **kwargs):
+        """Override dict method to handle company default"""
+        d = super().dict(**kwargs)
+        if not d.get('company'):
+            d['company'] = 'Unknown'
+        return d
 
 
 class BaseScraper(ABC):
