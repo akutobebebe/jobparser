@@ -71,8 +71,8 @@ class DjinniScraper(BaseScraper):
             if not title:
                 return None
 
-            # URL
-            job_url = link.get("href", "")
+            # URL — обрізаємо ?ref=...&sid=... трекінг-параметри
+            job_url = link.get("href", "").split("?")[0]
             if not job_url.startswith("http"):
                 job_url = self.base_url + job_url
 
