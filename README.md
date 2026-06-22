@@ -1,229 +1,116 @@
-# Job Aggregator & Analyzer MVP
+# JOBPRSR
 
-Система для автоматичного збору, зберігання та візуалізації вакансій для Python-розробників з українських сайтів DOU.ua та Djinni.co.
+Terminal tool for finding junior Python vacancies on Djinni and DOU. Runs live — no database, no web UI.
 
-## 🎯 Особливості
-
-- ✅ **Автоматичний парсинг** вакансій з Djinni.ua та DOU.ua
-- ✅ **Інтелектуальна фільтрація** за рівнем (Junior/Middle/Senior)
-- ✅ **Прострий веб-інтерфейс** на Streamlit
-- ✅ **SQLite база даних** для зберігання вакансій
-- ✅ **Асинхронний парсинг** для швидкої роботи
-- ✅ **Структурована логіка** з можливістю легко додавати нові парсери
-- ✅ **Валідація даних** через Pydantic
-
-## 📋 Требування
-
-- Python 3.9+
-- pip або poetry
-
-## 🚀 Встановлення
-
-### 1. Клонування репозиторію
-
-```bash
-git clone <repo-url>
-cd jobparser
+```
+     ██╗ ██████╗ ██████╗ ██████╗ ██████╗ ███████╗██████╗
+     ██║██╔═══██╗██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+     ██║██║   ██║██████╔╝██████╔╝██████╔╝███████╗██████╔╝
+██   ██║██║   ██║██╔══██╗██╔═══╝ ██╔══██╗╚════██║██╔══██╗
+╚█████╔╝╚██████╔╝██████╔╝██║     ██║  ██║███████║██║  ██║
+ ╚════╝  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
 ```
 
-### 2. Створення віртуального середовища
+## What it does
+
+Scrapes **Djinni** and **DOU** for Python vacancies filtered to junior / strong junior / no experience level, then prints a clean table with clickable links in the terminal. No database, no persistence — just a fresh list every run.
+
+Sources used:
+- **Djinni** — `?primary_keyword=Python&exp_level=no_exp&exp_level=1y`
+- **DOU** — RSS feeds `?category=Python&exp=0-1` and `?category=Python&exp=1-3`
+- **LinkedIn** — public job search (requires Playwright Chromium, optional)
+
+Junior filtering works on the **title only** (not the full description), which avoids false positives like a "Junior Python Developer" being tagged as senior because the word "senior" appeared somewhere in the job body.
+
+## Setup
 
 ```bash
 python -m venv venv
-source venv/bin/activate  # На Windows: venv\Scripts\activate
-```
-
-### 3. Встановлення залежностей
-
-```bash
+source venv/bin/activate
 pip install -r requirements.txt
+playwright install chromium   # only needed for LinkedIn
 ```
 
-### 4. Встановлення Playwright браузерів
-
-```bash
-playwright install chromium
-```
-
-### 5. Налаштування конфігурації
+Copy the optional env file if you want to override defaults:
 
 ```bash
 cp .env.example .env
-# Відредагуйте .env за необхідності
 ```
 
-## 📖 Використання
-
-### Запуск Streamlit UI
-
-```bash
-streamlit run app.py
-```
-
-Інтерфейс буде доступний за адресою: `http://localhost:8501`
-
-### Запуск CLI парсера
+## Usage
 
 ```bash
 python cli.py
 ```
 
-Це запустить парсинг всіх включених джерел та збереже результати в БД.
+Interactive menu appears:
 
-### Периодичне оновлення (Scheduler)
+```
+? source
+  > Djinni + DOU
+    Djinni only
+    DOU only
+    LinkedIn only
+
+? start scraping?  Yes
+```
+
+While scraping runs, a pixel-art snake animates with a progress bar. Results are printed as a table with full clickable URLs.
+
+## Project structure
+
+```
+jobparser/
+├── cli.py                    # entry point — interactive TUI
+├── core/
+│   ├── config.py             # settings (pydantic-settings, .env)
+│   └── logger.py             # shared logger
+└── scrapers/
+    ├── base.py               # BaseScraper + JobSchema (Pydantic)
+    ├── level.py              # is_junior() / detect_level() — title-first logic
+    ├── djinni_scraper.py     # httpx + BeautifulSoup
+    ├── dou_scraper.py        # httpx + xml.etree (RSS)
+    └── linkedin_scraper.py   # Playwright Chromium (headless)
+```
+
+## Adding a new source
+
+1. Create a class in `scrapers/` that extends `BaseScraper` and implements `scrape() -> List[JobSchema]`.
+2. Add the source name to `valid_sources` in `scrapers/base.py:48`.
+3. Wire it into `cli.py` (`_scrape_animated` and `_SOURCES`).
+
+## LinkedIn on macOS
+
+Playwright Chromium may be blocked by Gatekeeper on first run. Fix:
 
 ```bash
-python -m apscheduler.schedulers.blocking  # Буде додано пізніше
+sudo xattr -cr ~/Library/Caches/ms-playwright/chromium-1091/chrome-mac/Chromium.app/
 ```
 
-## 🏗️ Архітектура проекту
+Or reinstall the browser:
 
-```
-project_root/
-├── app.py                    # Streamlit UI
-├── cli.py                    # CLI для запуску парсерів
-│
-├── core/
-│   ├── config.py            # Налаштування проекту
-│   └── logger.py            # Логування
-│
-├── database/
-│   ├── models.py            # SQLAlchemy моделі (Job, Source)
-│   ├── connection.py        # Підключення до БД
-│   └── crud.py              # CRUD операції
-│
-├── scrapers/
-│   ├── base.py              # Абстрактний BaseScraper
-│   ├── djinni_scraper.py    # Реалізація для Djinni.co
-│   └── dou_scraper.py       # Реалізація для DOU.ua
-│
-├── utils/
-│   ├── filters.py           # Фільтрація та аналіз вакансій
-│   └── validators.py        # Валідація даних
-│
-└── requirements.txt
+```bash
+playwright install chromium
 ```
 
-## ⚙️ Налаштування (.env)
+If LinkedIn is unavailable the scraper returns an empty list and logs a warning — it does not crash the tool.
 
-```env
-# Database
-DATABASE_URL=sqlite:///./jobs.db
+## Environment variables
 
-# Scraping settings
-SCRAPE_INTERVAL_HOURS=6
-HEADLESS_BROWSER=true
-REQUEST_TIMEOUT_SECONDS=30
+| Variable | Default | Description |
+|---|---|---|
+| `REQUEST_TIMEOUT_SECONDS` | `30` | HTTP timeout for Djinni / DOU requests |
+| `USER_AGENT` | Chrome/120 UA string | User-agent header |
+| `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
 
-# Features
-ENABLE_DJINNI=true
-ENABLE_DOU=true
+## Dependencies
 
-# Logging
-LOG_LEVEL=INFO
-```
-
-## 📊 Функціонал
-
-### Streamlit UI (app.py)
-
-1. **📊 Overview** - Статистика по вакансіям, розподіл за рівнем та джерелами
-2. **📋 Jobs** - Таблиця всіх вакансій з фільтрацією
-3. **🔗 Sources** - Управління джерелами парсингу
-
-### Парсинг
-
-- **Djinni Scraper** - Використовує Playwright для динамічного контенту
-- **DOU Scraper** - Использует BeautifulSoup + httpx для статичного контенту
-
-### Валідація
-
-- Перевірка обов'язкових полів (title, company, url)
-- Парсинг та валідація URL
-- Автоматичне виявлення рівня за ключовими словами
-- Парсинг діапазону зарплати
-
-## 🔄 Робочий цикл
-
-1. **Запуск парсера** → `app.py` (UI) або `cli.py`
-2. **Завантаження сторінок** → Playwright/httpx
-3. **Парсинг HTML** → BeautifulSoup + регулярні вирази
-4. **Валідація даних** → Pydantic
-5. **Збереження в БД** → SQLAlchemy + SQLite
-6. **Відображення** → Streamlit таблиці та графіки
-
-## 🛠️ Розширення
-
-### Додавання нового парсера
-
-1. Створіть клас, що наслідує `BaseScraper`:
-
-```python
-from scrapers.base import BaseScraper, JobSchema
-
-class NewSiteScraper(BaseScraper):
-    def __init__(self):
-        super().__init__("newsite")
-    
-    async def scrape(self) -> List[JobSchema]:
-        # Ваша логіка парсингу
-        pass
-    
-    def get_source_url(self) -> str:
-        return "https://newsite.com"
-```
-
-2. Додайте в `cli.py`:
-
-```python
-if settings.enable_newsite:
-    new = await run_scraper(NewSiteScraper, 'newsite', db)
-```
-
-## 📝 Логування
-
-Логи зберігаються у папці `logs/` з автоматичною ротацією (5MB на файл).
-
-Рівні логування можна налаштувати через `.env`:
-
-```env
-LOG_LEVEL=DEBUG  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-```
-
-## 🐛 Відомі проблеми
-
-- DOU.ua може блокувати частих скрейперів (додати proxy/delays)
-- Playwright потребує встановлення браузерів (див. п.4 встановлення)
-
-## 📚 Стек технологій
-
-| Компонент | Технологія |
-|-----------|-----------|
-| Backend API | FastAPI (опціонально) |
-| Frontend/UI | Streamlit |
-| Database | SQLite + SQLAlchemy ORM |
-| Scraping | Playwright + BeautifulSoup |
-| Validation | Pydantic |
-| Async | asyncio |
-
-## 📄 Ліцензія
-
-MIT
-
-## 👨‍💻 Автор
-
-Розроблено як MVP для аналізу ринку роботи для Python-розробників.
-
-## 🤝 Внесення
-
-Пропозиції та pull requests вітаються!
-
-## 📞 Контакти
-
-Для питань та пропозицій - відкрийте Issue у репозиторії.
-
----
-
-**Статус проекту**: 🚧 Активна розробка
-
-**Остання оновлення**: 2026-06-22
+| Package | Used for |
+|---|---|
+| `httpx` | Async HTTP — Djinni HTML, DOU RSS |
+| `beautifulsoup4` + `lxml` | HTML parsing — Djinni |
+| `pydantic` + `pydantic-settings` | Job schema validation, settings |
+| `playwright` | Headless Chromium — LinkedIn |
+| `rich` | Terminal output — table, progress bar, Live |
+| `questionary` | Interactive menu |
+| `pyfiglet` | ASCII art header |

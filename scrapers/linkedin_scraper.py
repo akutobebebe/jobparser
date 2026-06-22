@@ -28,11 +28,19 @@ class LinkedInScraper(BaseScraper):
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(
-                    headless=self.settings.headless_browser
+                    headless=True,
+                    args=[
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                        "--disable-software-rasterizer",
+                    ],
                 )
                 context = await browser.new_context(
                     user_agent=self.settings.user_agent,
                     locale="en-US",
+                    ignore_https_errors=True,
                 )
                 page = await context.new_page()
 
@@ -78,7 +86,7 @@ class LinkedInScraper(BaseScraper):
                 await browser.close()
 
         except Exception as e:
-            self.logger.error(f"LinkedIn scraping error: {e}", exc_info=True)
+            self.logger.warning(f"LinkedIn unavailable: {e}")
 
         return jobs
 

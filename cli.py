@@ -115,9 +115,9 @@ def _build_live(frame: int, label: str, note: str, step: int, total: int) -> Tex
 async def _scrape_animated(source: str) -> List[JobSchema]:
     steps: list[tuple[str, object]] = []
     if source in ("all", "djinni"):
-        steps.append(("djinni  ", DjinniScraper()))
+        steps.append(("djinni", DjinniScraper()))
     if source in ("all", "dou"):
-        steps.append(("dou     ", DOUScraper()))
+        steps.append(("dou", DOUScraper()))
     if source in ("all", "linkedin"):
         steps.append(("linkedin", LinkedInScraper()))
 
