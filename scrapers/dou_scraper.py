@@ -91,6 +91,8 @@ class DOUScraper(BaseScraper):
             job_url = (item.findtext("link") or "").strip()
             if not job_url or not job_url.startswith("http"):
                 return None
+            # обрізаємо ?utm_source=jobsrss та інший query string від RSS
+            job_url = job_url.split("?")[0].rstrip("/") + "/"
 
             raw_desc = item.findtext("description") or ""
             description = self.cleanup_text(
