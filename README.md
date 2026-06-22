@@ -28,7 +28,7 @@ Junior filtering works on the **title only** (not the full description), which a
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-playwright install chromium   # only needed for LinkedIn
+playwright install webkit     # only needed for LinkedIn (WebKit is native on macOS)
 ```
 
 Copy the optional env file if you want to override defaults:
@@ -79,21 +79,15 @@ jobparser/
 2. Add the source name to `valid_sources` in `scrapers/base.py:48`.
 3. Wire it into `cli.py` (`_scrape_animated` and `_SOURCES`).
 
-## LinkedIn on macOS
+## LinkedIn note
 
-Playwright Chromium may be blocked by Gatekeeper on first run. Fix:
-
-```bash
-sudo xattr -cr ~/Library/Caches/ms-playwright/chromium-1091/chrome-mac/Chromium.app/
-```
-
-Or reinstall the browser:
+Uses Playwright **WebKit** (not Chromium) — WebKit is native on macOS and works without extra setup. Install it once:
 
 ```bash
-playwright install chromium
+playwright install webkit
 ```
 
-If LinkedIn is unavailable the scraper returns an empty list and logs a warning — it does not crash the tool.
+If LinkedIn is unavailable the scraper returns an empty list and logs a warning — the tool continues normally.
 
 ## Environment variables
 
