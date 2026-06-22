@@ -23,6 +23,7 @@ from rich import box
 from scrapers.base import JobSchema
 from scrapers.djinni_scraper import DjinniScraper
 from scrapers.dou_scraper import DOUScraper
+from scrapers.linkedin_scraper import LinkedInScraper
 from core.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -84,9 +85,11 @@ async def _scrape_with_progress(source: str, progress: Progress) -> List[JobSche
     steps: list[tuple[str, object]] = []  # (label, scraper_or_None)
 
     if source in ("all", "djinni"):
-        steps.append(("djinni", DjinniScraper()))
+        steps.append(("djinni  ", DjinniScraper()))
     if source in ("all", "dou"):
-        steps.append(("dou   ", DOUScraper()))
+        steps.append(("dou     ", DOUScraper()))
+    if source in ("all", "linkedin"):
+        steps.append(("linkedin", LinkedInScraper()))
 
     # крок "фільтрація" — фіксований останній
     total_steps = len(steps) + 1
@@ -175,9 +178,10 @@ def print_results(jobs: List[JobSchema]) -> None:
 
 # ── Меню ───────────────────────────────────────────────────────────────────
 _SOURCES = [
-    questionary.Choice("Djinni + DOU",  value="all"),
-    questionary.Choice("Djinni only",   value="djinni"),
-    questionary.Choice("DOU only",      value="dou"),
+    questionary.Choice("All sources",        value="all"),
+    questionary.Choice("Djinni only",        value="djinni"),
+    questionary.Choice("DOU only",           value="dou"),
+    questionary.Choice("LinkedIn only",      value="linkedin"),
 ]
 
 

@@ -13,6 +13,7 @@ from database.crud import (
 )
 from scrapers.djinni_scraper import DjinniScraper
 from scrapers.dou_scraper import DOUScraper
+from scrapers.linkedin_scraper import LinkedInScraper
 from core.logger import setup_logger
 from core.config import get_settings
 
@@ -49,11 +50,13 @@ with st.sidebar:
     settings = get_settings()
     
     st.subheader("Scraping Settings")
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
         enable_djinni = st.checkbox("Djinni.ua", value=settings.enable_djinni, key="djinni_check")
     with col2:
         enable_dou = st.checkbox("DOU.ua", value=settings.enable_dou, key="dou_check")
+    with col3:
+        enable_linkedin = st.checkbox("LinkedIn", value=settings.enable_linkedin, key="linkedin_check")
     
     scrape_button = st.button("🔄 Run Scraping", use_container_width=True, type="primary")
     
@@ -66,6 +69,8 @@ with st.sidebar:
         selected_sources.append("djinni")
     if enable_dou:
         selected_sources.append("dou")
+    if enable_linkedin:
+        selected_sources.append("linkedin")
     
     selected_level = st.multiselect(
         "Level",
@@ -89,13 +94,14 @@ try:
         st.header("Market Overview")
         
         # Statistics
-        col1, col2, col3, col4 = st.columns(4)
-        
+        col1, col2, col3, col4, col5 = st.columns(5)
+
         total_active = get_job_count(db, is_active=True) or 0
         total_inactive = get_job_count(db, is_active=False) or 0
         djinni_count = get_job_count(db, source="djinni", is_active=True) or 0
         dou_count = get_job_count(db, source="dou", is_active=True) or 0
-        
+        linkedin_count = get_job_count(db, source="linkedin", is_active=True) or 0
+
         with col1:
             st.metric("Total Active Jobs", total_active, delta=f"Inactive: {total_inactive}")
         with col2:
@@ -103,6 +109,8 @@ try:
         with col3:
             st.metric("DOU.ua", dou_count, delta="Active")
         with col4:
+            st.metric("LinkedIn", linkedin_count, delta="Active")
+        with col5:
             st.metric("Last Updated", datetime.now().strftime("%H:%M:%S"))
         
         st.divider()
@@ -126,8 +134,8 @@ try:
             with col2:
                 st.subheader("Jobs by Source")
                 source_data = pd.DataFrame({
-                    "Source": ["Djinni", "DOU"],
-                    "Count": [djinni_count, dou_count]
+                    "Source": ["Djinni", "DOU", "LinkedIn"],
+                    "Count": [djinni_count, dou_count, linkedin_count]
                 })
                 st.pie_chart(source_data.set_index("Source"))
         else:
@@ -223,6 +231,8 @@ if scrape_button:
             scrapers.append(("Djinni", DjinniScraper()))
         if enable_dou:
             scrapers.append(("DOU", DOUScraper()))
+        if enable_linkedin:
+            scrapers.append(("LinkedIn", LinkedInScraper()))
         
         db = create_session()
         total_jobs = 0
