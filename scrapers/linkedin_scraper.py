@@ -27,16 +27,9 @@ class LinkedInScraper(BaseScraper):
         jobs: List[JobSchema] = []
         try:
             async with async_playwright() as p:
-                browser = await p.chromium.launch(
-                    headless=True,
-                    args=[
-                        "--no-sandbox",
-                        "--disable-setuid-sandbox",
-                        "--disable-dev-shm-usage",
-                        "--disable-gpu",
-                        "--disable-software-rasterizer",
-                    ],
-                )
+                # Chromium crashes on some macOS builds (SEGV_ACCERR in GPU pipeline).
+                # WebKit is native on macOS and works reliably.
+                browser = await p.webkit.launch(headless=True)
                 context = await browser.new_context(
                     user_agent=self.settings.user_agent,
                     locale="en-US",
