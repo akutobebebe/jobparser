@@ -1,16 +1,19 @@
 """
 Junior Python Job Finder — Djinni + DOU
-Usage:
-  python cli.py                   # обидва джерела
-  python cli.py --source djinni   # тільки Djinni
-  python cli.py --source dou      # тільки DOU
-  python cli.py --limit 20        # обмежити кількість результатів
 """
 
 import asyncio
-import argparse
 import sys
 from typing import List
+
+import questionary
+from questionary import Style
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.text import Text
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich import box
 
 from scrapers.base import JobSchema
 from scrapers.djinni_scraper import DjinniScraper
@@ -19,42 +22,34 @@ from core.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-# ── ANSI-кольори (вимикаються якщо stdout не tty) ──────────────────────────
-_USE_COLOR = sys.stdout.isatty()
+console = Console()
+
+# ── Стиль questionary ──────────────────────────────────────────────────────
+_Q_STYLE = Style([
+    ("qmark",        "fg:#00d7ff bold"),
+    ("question",     "bold"),
+    ("answer",       "fg:#00ff87 bold"),
+    ("pointer",      "fg:#00d7ff bold"),
+    ("highlighted",  "fg:#00d7ff bold"),
+    ("selected",     "fg:#00ff87"),
+    ("separator",    "fg:#444444"),
+    ("instruction",  "fg:#888888 italic"),
+])
+
+# ── Джерела ────────────────────────────────────────────────────────────────
+SOURCE_CHOICES = [
+    questionary.Choice("🔵  Djinni + DOU  (обидва)", value="all"),
+    questionary.Choice("🟣  Тільки Djinni",           value="djinni"),
+    questionary.Choice("🟠  Тільки DOU",              value="dou"),
+]
 
 
-def _c(code: str, text: str) -> str:
-    return f"\033[{code}m{text}\033[0m" if _USE_COLOR else text
-
-
-BOLD   = lambda t: _c("1", t)
-CYAN   = lambda t: _c("36", t)
-GREEN  = lambda t: _c("32", t)
-YELLOW = lambda t: _c("33", t)
-DIM    = lambda t: _c("2", t)
-
-
-# ── OSC-8 гіперлінк (клікабельний у більшості сучасних терміналів) ─────────
-def hyperlink(url: str, label: str | None = None) -> str:
-    if not _USE_COLOR:
-        return url
-    text = label or url
-    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
-
-
-# ── Форматування одного запису ─────────────────────────────────────────────
-def format_job(job: JobSchema) -> str:
-    title_line = f"  {BOLD(job.title)} {DIM('—')} {job.company}"
-    url_line   = f"    {hyperlink(job.url, GREEN(job.url))}"
-    return f"{title_line}\n{url_line}"
-
-
-# ── Основна логіка ─────────────────────────────────────────────────────────
-async def collect_jobs(source: str | None) -> List[JobSchema]:
+# ── Парсинг ────────────────────────────────────────────────────────────────
+async def _scrape(source: str) -> List[JobSchema]:
     scrapers = []
-    if source in (None, "djinni"):
+    if source in ("all", "djinni"):
         scrapers.append(DjinniScraper())
-    if source in (None, "dou"):
+    if source in ("all", "dou"):
         scrapers.append(DOUScraper())
 
     results = await asyncio.gather(*(s.scrape() for s in scrapers))
@@ -69,12 +64,26 @@ async def collect_jobs(source: str | None) -> List[JobSchema]:
     return jobs
 
 
-def print_results(jobs: List[JobSchema], limit: int | None) -> None:
-    if limit:
-        jobs = jobs[:limit]
+def run_scrape(source: str) -> List[JobSchema]:
+    with Progress(
+        SpinnerColumn(spinner_name="dots", style="cyan"),
+        TextColumn("[cyan]Парсимо вакансії…"),
+        transient=True,
+        console=console,
+    ) as progress:
+        progress.add_task("", total=None)
+        jobs = asyncio.run(_scrape(source))
+    return jobs
 
+
+# ── Відображення результатів ───────────────────────────────────────────────
+def _source_color(source: str) -> str:
+    return {"djinni": "bright_magenta", "dou": "bright_yellow"}.get(source, "white")
+
+
+def print_results(jobs: List[JobSchema]) -> None:
     if not jobs:
-        print(YELLOW("Вакансій не знайдено."))
+        console.print(Panel("[yellow]Вакансій не знайдено.[/yellow]", border_style="yellow"))
         return
 
     by_source: dict[str, List[JobSchema]] = {}
@@ -82,50 +91,107 @@ def print_results(jobs: List[JobSchema], limit: int | None) -> None:
         by_source.setdefault(job.source, []).append(job)
 
     for source, items in by_source.items():
-        header = CYAN(BOLD(f"=== {source.upper()} ({len(items)}) ==="))
-        print(f"\n{header}")
-        for job in items:
-            print(format_job(job))
+        color = _source_color(source)
+
+        table = Table(
+            box=box.ROUNDED,
+            border_style=color,
+            header_style=f"bold {color}",
+            show_lines=True,
+            expand=True,
+            title=f"[bold {color}]{source.upper()}[/bold {color}]  [{color}]{len(items)} вакансій[/{color}]",
+            title_justify="left",
+        )
+        table.add_column("#",         style="dim",        width=3,  no_wrap=True)
+        table.add_column("Назва",     style="bold white", ratio=40)
+        table.add_column("Компанія",  style="cyan",       ratio=25)
+        table.add_column("Посилання", style="bright_blue", ratio=35)
+
+        for i, job in enumerate(items, 1):
+            link = Text(job.url, style=f"link {job.url} bright_blue underline")
+            table.add_row(str(i), job.title, job.company, link)
+
+        console.print(table)
+        console.print()
 
     total = len(jobs)
-    print(f"\n{BOLD(GREEN(f'Знайдено {total} junior Python-вакансій.'))}")
+    console.print(
+        Panel(
+            f"[bold green]✓  Знайдено [bright_white]{total}[/bright_white] junior Python-вакансій[/bold green]",
+            border_style="green",
+            expand=False,
+        )
+    )
 
 
+# ── Головне меню ───────────────────────────────────────────────────────────
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Знайти junior Python-вакансії на Djinni та DOU",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
-    )
-    parser.add_argument(
-        "--source",
-        choices=["djinni", "dou"],
-        default=None,
-        help="Показати лише одне джерело (за замовчуванням — обидва)",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        metavar="N",
-        help="Показати не більше N результатів",
-    )
-    args = parser.parse_args()
+    console.print()
+    console.print(Panel(
+        "[bold cyan]Junior Python Job Finder[/bold cyan]\n"
+        "[dim]Djinni · DOU  —  тільки junior / strong junior / без досвіду[/dim]",
+        border_style="cyan",
+        expand=False,
+    ))
+    console.print()
 
-    print(BOLD(CYAN("Шукаємо junior Python-вакансії…")))
+    while True:
+        # 1. Вибір джерела
+        source = questionary.select(
+            "Оберіть джерело:",
+            choices=SOURCE_CHOICES,
+            style=_Q_STYLE,
+            use_shortcuts=False,
+        ).ask()
 
-    try:
-        jobs = asyncio.run(collect_jobs(args.source))
-    except KeyboardInterrupt:
-        print("\nПерервано.")
-        sys.exit(0)
-    except Exception as e:
-        logger.error(f"Помилка: {e}", exc_info=True)
-        print(f"Помилка: {e}", file=sys.stderr)
-        sys.exit(1)
+        if source is None:           # Ctrl+C
+            console.print("[dim]Скасовано.[/dim]")
+            sys.exit(0)
 
-    print_results(jobs, args.limit)
+        # 2. Підтвердження — кнопка «Парсити»
+        go = questionary.confirm(
+            "Запустити парсинг?",
+            default=True,
+            style=_Q_STYLE,
+        ).ask()
+
+        if not go:
+            console.print("[dim]Скасовано.[/dim]")
+            sys.exit(0)
+
+        # 3. Парсинг
+        console.print()
+        try:
+            jobs = run_scrape(source)
+        except KeyboardInterrupt:
+            console.print("\n[dim]Перервано.[/dim]")
+            sys.exit(0)
+        except Exception as e:
+            console.print(f"[red]Помилка:[/red] {e}")
+            sys.exit(1)
+
+        # 4. Результати
+        console.print()
+        print_results(jobs)
+        console.print()
+
+        # 5. Повторити або вийти
+        again = questionary.confirm(
+            "Зробити ще один запит?",
+            default=False,
+            style=_Q_STYLE,
+        ).ask()
+
+        if not again:
+            console.print("[dim]До побачення![/dim]")
+            break
+
+        console.print()
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        console.print("\n[dim]Перервано.[/dim]")
+        sys.exit(0)
