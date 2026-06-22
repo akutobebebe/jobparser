@@ -113,17 +113,11 @@ try:
             
             with col1:
                 st.subheader("Distribution by Level")
-                level_data = []
-                for level in ["junior", "middle", "senior"]:
-                    count = db.query(db.query(type([])).from_(type([]))) # Placeholder
-                    # TODO: Implement proper aggregation
-                
-                # Placeholder for now
-                levels = ["Junior", "Middle", "Senior"]
-                counts = [10, 35, 55]  # Placeholder
+                levels = ["junior", "middle", "senior"]
+                counts = [len(get_jobs(db, level=level, is_active=True, limit=1000)) for level in levels]
                 
                 fig_data = pd.DataFrame({
-                    "Level": levels,
+                    "Level": [level.title() for level in levels],
                     "Count": counts
                 })
                 
