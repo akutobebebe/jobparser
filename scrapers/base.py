@@ -45,7 +45,7 @@ class JobSchema(BaseModel):
     @classmethod
     def validate_source(cls, v):
         """Validate source is known"""
-        valid_sources = {'djinni', 'dou'}
+        valid_sources = {'djinni', 'dou', 'linkedin'}
         if v.lower() not in valid_sources:
             raise ValueError(f'Source must be one of {valid_sources}')
         return v.lower()

@@ -1,0 +1,14 @@
+{
+  "id": "session-1782128651203",
+  "startedAt": "2026-06-22T11:44:11.203Z",
+  "cwd": "/Users/ulia/jobparser",
+  "context": {},
+  "metrics": {
+    "edits": 0,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "endedAt": "2026-06-22T11:45:00.579Z",
+  "duration": 49378
+}

@@ -17,6 +17,7 @@ from rich.live import Live
 from scrapers.base import JobSchema
 from scrapers.djinni_scraper import DjinniScraper
 from scrapers.dou_scraper import DOUScraper
+from scrapers.linkedin_scraper import LinkedInScraper
 from core.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -114,9 +115,11 @@ def _build_live(frame: int, label: str, note: str, step: int, total: int) -> Tex
 async def _scrape_animated(source: str) -> List[JobSchema]:
     steps: list[tuple[str, object]] = []
     if source in ("all", "djinni"):
-        steps.append(("djinni", DjinniScraper()))
+        steps.append(("djinni  ", DjinniScraper()))
     if source in ("all", "dou"):
-        steps.append(("dou", DOUScraper()))
+        steps.append(("dou     ", DOUScraper()))
+    if source in ("all", "linkedin"):
+        steps.append(("linkedin", LinkedInScraper()))
 
     total  = len(steps) + 1
     state  = {"frame": 0, "step": 0, "label": "starting", "note": "", "done": False}
@@ -246,9 +249,10 @@ def print_header() -> None:
 
 # ── Меню ───────────────────────────────────────────────────────────────────
 _SOURCES = [
-    questionary.Choice("Djinni + DOU",  value="all"),
-    questionary.Choice("Djinni only",   value="djinni"),
-    questionary.Choice("DOU only",      value="dou"),
+    questionary.Choice("All sources",        value="all"),
+    questionary.Choice("Djinni only",        value="djinni"),
+    questionary.Choice("DOU only",           value="dou"),
+    questionary.Choice("LinkedIn only",      value="linkedin"),
 ]
 
 

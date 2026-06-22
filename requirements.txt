@@ -11,3 +11,4 @@ python-dotenv==1.0.0
 aiohttp==3.9.1
 httpx==0.25.2
 lxml==4.9.3
+playwright>=1.40.0

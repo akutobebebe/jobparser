@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     # Features
     enable_djinni: bool = True
     enable_dou: bool = True
+    enable_linkedin: bool = True
     
     class Config:
         env_file = ".env"
