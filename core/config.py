@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 
@@ -10,6 +11,8 @@ class Settings(BaseSettings):
         "Chrome/120.0.0.0 Safari/537.36"
     )
     log_level: str = "INFO"
+    google_credentials_file: Optional[str] = None
+    google_sheet_name: str = "JOBPRSR"
 
     class Config:
         env_file = ".env"

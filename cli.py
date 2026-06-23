@@ -3,7 +3,11 @@ JOBPRSR — junior python vacancy finder
 """
 
 import asyncio
+import csv
+import json
 import sys
+from datetime import datetime
+from pathlib import Path
 from typing import List
 
 import pyfiglet
@@ -235,6 +239,52 @@ def print_results(jobs: List[JobSchema]) -> None:
     )
 
 
+# ── Експорт ────────────────────────────────────────────────────────────────
+_EXPORT_FORMATS = [
+    questionary.Choice("no",   value=None),
+    questionary.Choice("CSV",  value="csv"),
+    questionary.Choice("JSON", value="json"),
+    questionary.Choice("XLSX", value="xlsx"),
+]
+
+
+def export_jobs(jobs: List[JobSchema], fmt: str) -> Path:
+    ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
+    path = Path(f"jobs_{ts}.{fmt}")
+
+    if fmt == "csv":
+        fields = list(JobSchema.model_fields.keys())
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fields)
+            writer.writeheader()
+            for job in jobs:
+                writer.writerow(job.model_dump(mode="json"))
+
+    elif fmt == "json":
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(
+                [job.model_dump(mode="json") for job in jobs],
+                f, ensure_ascii=False, indent=2,
+            )
+
+    elif fmt == "xlsx":
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+        fields = list(JobSchema.model_fields.keys())
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "jobs"
+        ws.append(fields)
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+        for job in jobs:
+            row = job.model_dump(mode="json")
+            ws.append([str(row[f]) if row[f] is not None else "" for f in fields])
+        wb.save(path)
+
+    return path
+
+
 # ── Заголовок ──────────────────────────────────────────────────────────────
 def print_header() -> None:
     banner = pyfiglet.figlet_format("JOBPRSR", font="ansi_shadow")
@@ -296,6 +346,21 @@ def main() -> None:
             sys.exit(1)
 
         print_results(jobs)
+
+        if jobs:
+            export_fmt = questionary.select(
+                "export results?",
+                choices=_EXPORT_FORMATS,
+                style=_STYLE,
+                instruction="(arrows · Enter)",
+            ).ask()
+
+            if export_fmt:
+                path = export_jobs(jobs, export_fmt)
+                console.print(
+                    f"\n  [bold {P}]saved[/bold {P}]"
+                    f"  [{P4}]{path}[/{P4}]\n"
+                )
 
         again = questionary.confirm(
             "run again?",
