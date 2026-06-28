@@ -137,8 +137,8 @@ case "$DISTRO" in
 esac
 
 echo ""
-echo "Installing Playwright WebKit browser..."
-playwright install webkit
+echo "Installing Playwright Chromium browser (used on Linux)..."
+playwright install chromium
 
 echo ""
 echo "Done! Run 'python cli.py' or 'streamlit run app.py' to start."
