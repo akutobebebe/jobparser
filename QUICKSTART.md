@@ -11,7 +11,21 @@ pip install -r requirements.txt
 ### 2. Встановлення браузерів Playwright
 
 ```bash
-playwright install chromium
+playwright install webkit
+```
+
+**Linux (Fedora / RHEL / CentOS)** — install system dependencies first:
+
+```bash
+bash scripts/install_playwright_deps.sh
+```
+
+The script auto-detects your distro (Fedora, Ubuntu/Debian, Arch, openSUSE) and installs the required system libraries, then runs `playwright install webkit` automatically.
+
+**Ubuntu / Debian** — alternative one-liner:
+
+```bash
+playwright install-deps && playwright install webkit
 ```
 
 ### 3. Налаштування конфігурації (опціонально)
@@ -88,7 +102,13 @@ uvicorn main:app --reload
 
 ```bash
 pip install playwright
-playwright install chromium
+playwright install webkit
+```
+
+### Помилка: "Host system is missing dependencies" (Linux)
+
+```bash
+bash scripts/install_playwright_deps.sh
 ```
 
 ### Помилка: "SQLite database is locked"
