@@ -1,4 +1,6 @@
 import re
+import platform
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from playwright.async_api import async_playwright
@@ -6,6 +8,36 @@ from playwright.async_api import async_playwright
 from scrapers.base import BaseScraper, JobSchema
 from scrapers.level import detect_level, is_junior
 from core.config import get_settings
+
+
+def _missing_deps_hint() -> str:
+    """Return an OS-specific install hint when Playwright browser deps are missing."""
+    if platform.system() != "Linux":
+        return "Run: playwright install-deps"
+    distro = ""
+    try:
+        text = Path("/etc/os-release").read_text()
+        for line in text.splitlines():
+            if line.startswith("ID="):
+                distro = line.split("=", 1)[1].strip().strip('"').lower()
+                break
+    except OSError:
+        pass
+
+    if distro in ("fedora", "rhel", "centos", "almalinux", "rocky"):
+        return (
+            "Run: bash scripts/install_playwright_deps.sh\n"
+            "  or: sudo dnf install -y libicu libjpeg-turbo woff2 gstreamer1-plugin-libav"
+        )
+    if distro in ("arch", "manjaro", "endeavouros"):
+        return (
+            "Run: bash scripts/install_playwright_deps.sh\n"
+            "  or: sudo pacman -S icu libjpeg-turbo woff2 gst-libav"
+        )
+    return (
+        "Run: bash scripts/install_playwright_deps.sh\n"
+        "  or: sudo apt-get install libicu74 libjpeg-turbo8 libwoff1 gstreamer1.0-libav"
+    )
 
 
 class LinkedInScraper(BaseScraper):
@@ -27,9 +59,14 @@ class LinkedInScraper(BaseScraper):
         jobs: List[JobSchema] = []
         try:
             async with async_playwright() as p:
-                # Chromium crashes on some macOS builds (SEGV_ACCERR in GPU pipeline).
-                # WebKit is native on macOS and works reliably.
-                browser = await p.webkit.launch(headless=True)
+                # WebKit is native on macOS and avoids GPU pipeline crashes.
+                # On Linux, Chromium has better distro compatibility (WebKit ships
+                # an Ubuntu-compiled binary that requires specific ICU/libjpeg versions
+                # not available on Fedora/Arch/etc.).
+                if platform.system() == "Darwin":
+                    browser = await p.webkit.launch(headless=True)
+                else:
+                    browser = await p.chromium.launch(headless=True)
                 context = await browser.new_context(
                     user_agent=self.settings.user_agent,
                     locale="en-US",
@@ -79,7 +116,14 @@ class LinkedInScraper(BaseScraper):
                 await browser.close()
 
         except Exception as e:
-            self.logger.warning(f"LinkedIn unavailable: {e}")
+            msg = str(e)
+            if "missing dependencies" in msg or "BrowserType.launch" in msg:
+                self.logger.warning(
+                    f"LinkedIn unavailable: browser dependencies missing.\n"
+                    f"  {_missing_deps_hint()}"
+                )
+            else:
+                self.logger.warning(f"LinkedIn unavailable: {e}")
 
         return jobs
 
